@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: docmind-postgres
+    environment:
+      POSTGRES_USER: docmind
+      POSTGRES_PASSWORD: docmind
+      POSTGRES_DB: docmind
+    ports:
+      - "5434:5432"
+    volumes:
+      - docmind-postgres-data:/var/lib/postgresql/data
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: docmind-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - docmind-qdrant-data:/qdrant/storage
+  ollama:
+    image: ollama/ollama:latest
+    container_name: docmind-ollama
+    ports:
+        - "11434:11434"
+    volumes:
+      - docmind-ollama-data:/root/.ollama
+
+volumes:
+  docmind-postgres-data:
+  docmind-qdrant-data:
+  docmind-ollama-data:

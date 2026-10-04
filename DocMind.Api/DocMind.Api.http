@@ -1,0 +1,40 @@
+@DocMind.Api_HostAddress = http://localhost:5169
+
+GET {{DocMind.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+
+
+
+### Post test
+POST {{DocMind.Api_HostAddress}}/documents
+Content-Type: application/json
+
+{
+  "title": "Test Document",
+  "content": "PaySync is an event-driven payment processing demo. It uses RabbitMQ for asynchronous messaging and PostgreSQL with optimistic concurrency control via the xmin column. The outbox pattern ensures reliable event publishing.\n\nCoreCRM is a metadata-driven CRM core. It stores records as JSONB in PostgreSQL and uses Redis for caching entity definitions."
+}
+
+### Healt / ready test
+GET {{DocMind.Api_HostAddress}}/health/ready
+Accept: application/json
+
+
+
+### Query test
+POST {{DocMind.Api_HostAddress}}/query
+Content-Type: application/json
+
+{
+  "question": "How does PaySync handle concurrency?",
+  "topK": 2
+}
+
+
+### Delete document
+DELETE {{DocMind.Api_HostAddress}}/documents/0932e6da-1fc3-49c7-971a-71500fc15e40
+
+
+### Delete document 2
+DELETE {{DocMind.Api_HostAddress}}/documents/1218551e-d13d-4c98-b6b4-4e6a58dbdb9f
