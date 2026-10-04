@@ -17,11 +17,12 @@ namespace DocMind.Tests
             _sut = new QdrantVectorStore(fixture.CreateClient());
         }
 
-        private static float[] BuildVector(float seed, int dimensions = 8)
+        private static float[] BuildVector(int primaryDimension, float magnitude = 5f, float secondaryNoise = 0f, int dimensions = 8)
         {
             var vector = new float[dimensions];
-            for (var i = 0; i < dimensions; i++)
-                vector[i] = seed + i;
+            vector[primaryDimension % dimensions] = magnitude;
+            if (secondaryNoise != 0f)
+                vector[(primaryDimension + 1) % dimensions] = secondaryNoise;
             return vector;
         }
 
@@ -31,10 +32,11 @@ namespace DocMind.Tests
             await _sut.EnsureCollectionExistsAsync(vectorSize: 8);
 
             var documentId = Guid.NewGuid();
-            var chunk = new DocumentChunk(Guid.NewGuid(), documentId, 0, "Test content", BuildVector(1f));
+            var vector = BuildVector(primaryDimension: 0);
+            var chunk = new DocumentChunk(Guid.NewGuid(), documentId, 0, "Test content", vector);
             await _sut.UpsertAsync(chunk);
 
-            var results = await _sut.SearchAsync(BuildVector(1f), topK: 1);
+            var results = await _sut.SearchAsync(vector, topK: 1);
 
             Assert.Single(results);
             Assert.Equal(chunk.Content, results[0].Chunk.Content);
@@ -47,16 +49,19 @@ namespace DocMind.Tests
             await _sut.EnsureCollectionExistsAsync(vectorSize: 8);
 
             var documentId = Guid.NewGuid();
-            var closeChunk = new DocumentChunk(Guid.NewGuid(), documentId, 0, "Close chunk", BuildVector(1f));
-            var farChunk = new DocumentChunk(Guid.NewGuid(), documentId, 1, "Far chunk", BuildVector(50f));
+            var query = BuildVector(primaryDimension: 1);
+            // closeChunk: query ile aynı doğrultuda, ufak bir sapma var — yüksek cosine benzerliği
+            var closeChunk = new DocumentChunk(Guid.NewGuid(), documentId, 0, "Close chunk", BuildVector(primaryDimension: 1, secondaryNoise: 0.1f));
+            // farChunk: tamamen farklı bir boyutta (ortogonal) — cosine benzerliği ~0
+            var farChunk = new DocumentChunk(Guid.NewGuid(), documentId, 1, "Far chunk", BuildVector(primaryDimension: 2));
 
             await _sut.UpsertAsync(closeChunk);
             await _sut.UpsertAsync(farChunk);
 
-            var results = await _sut.SearchAsync(BuildVector(1f), topK: 2);
+            var results = await _sut.SearchAsync(query, topK: 2);
 
             Assert.Equal(2, results.Count);
-            Assert.Equal("Close chunk", results[0].Chunk.Content); // en yakın vektör ilk sırada olmalı
+            Assert.Equal("Close chunk", results[0].Chunk.Content);
             Assert.True(results[0].Score > results[1].Score);
         }
 
@@ -67,13 +72,14 @@ namespace DocMind.Tests
 
             var documentToDelete = Guid.NewGuid();
             var documentToKeep = Guid.NewGuid();
+            var query = BuildVector(primaryDimension: 3);
 
-            await _sut.UpsertAsync(new DocumentChunk(Guid.NewGuid(), documentToDelete, 0, "Delete me", BuildVector(1f)));
-            await _sut.UpsertAsync(new DocumentChunk(Guid.NewGuid(), documentToKeep, 0, "Keep me", BuildVector(2f)));
+            await _sut.UpsertAsync(new DocumentChunk(Guid.NewGuid(), documentToDelete, 0, "Delete me", query));
+            await _sut.UpsertAsync(new DocumentChunk(Guid.NewGuid(), documentToKeep, 0, "Keep me", BuildVector(primaryDimension: 3, secondaryNoise: 0.1f)));
 
             await _sut.DeleteByDocumentIdAsync(documentToDelete);
 
-            var results = await _sut.SearchAsync(BuildVector(1.5f), topK: 10);
+            var results = await _sut.SearchAsync(query, topK: 10);
 
             Assert.Single(results);
             Assert.Equal("Keep me", results[0].Chunk.Content);
